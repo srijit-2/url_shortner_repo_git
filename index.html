@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>snip — URL Shortener</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2a2a2a;
+    --accent: #c8f04a;
+    --accent-dim: #9ab836;
+    --text: #f0ede8;
+    --muted: #6b6b6b;
+    --error: #ff5c5c;
+    --radius: 10px;
+  }
+
+  html { background: var(--bg); }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 1rem 4rem;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: .4;
+  }
+
+  /* Glow blob */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 500px;
+    background: radial-gradient(ellipse, rgba(200,240,74,0.07) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .wrap { width: 100%; max-width: 680px; position: relative; z-index: 1; }
+
+  /* Header */
+  header { padding: 3.5rem 0 2.5rem; text-align: center; }
+  .logo {
+    font-size: 3.2rem; font-weight: 800; letter-spacing: -2px;
+    color: var(--text);
+    display: inline-flex; align-items: center; gap: .2em;
+  }
+  .logo span { color: var(--accent); }
+  .tagline { color: var(--muted); font-size: .85rem; font-weight: 400; margin-top: .5rem; letter-spacing: .05em; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Form */
+  .field { margin-bottom: 1rem; }
+  label { display: block; font-size: .75rem; letter-spacing: .08em; color: var(--muted); margin-bottom: .5rem; text-transform: uppercase; }
+  input[type="text"], input[type="url"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: .9rem;
+    padding: .75rem 1rem;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  .btn {
+    width: 100%;
+    background: var(--accent);
+    color: #0d0d0d;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Syne', sans-serif;
+    font-size: .95rem;
+    font-weight: 700;
+    padding: .85rem;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    letter-spacing: .03em;
+    margin-top: .5rem;
+  }
+  .btn:hover { background: #d4f55e; }
+  .btn:active { transform: scale(.98); }
+
+  /* Error */
+  .error-box {
+    background: rgba(255,92,92,.08);
+    border: 1px solid rgba(255,92,92,.3);
+    border-radius: var(--radius);
+    color: var(--error);
+    padding: .75rem 1rem;
+    font-size: .88rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Result */
+  .result-box {
+    background: rgba(200,240,74,.06);
+    border: 1px solid rgba(200,240,74,.25);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .result-label { font-size: .72rem; letter-spacing: .1em; color: var(--accent-dim); text-transform: uppercase; margin-bottom: .6rem; }
+  .result-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.25rem;
+    color: var(--accent);
+    word-break: break-all;
+    margin-bottom: 1rem;
+  }
+  .result-actions { display: flex; gap: .75rem; }
+  .btn-sm {
+    flex: 1;
+    padding: .6rem;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    letter-spacing: .03em;
+    border: none;
+  }
+  .btn-copy {
+    background: var(--accent); color: #0d0d0d;
+  }
+  .btn-copy:hover { background: #d4f55e; }
+  .btn-stats {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-stats:hover { border-color: var(--muted); }
+  .btn-stats a { color: inherit; text-decoration: none; }
+  .copy-feedback { font-size: .75rem; color: var(--accent); margin-top: .5rem; height: 1em; }
+
+  /* Recent */
+  .section-title {
+    font-size: .72rem; letter-spacing: .1em; color: var(--muted);
+    text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .link-row {
+    display: flex; align-items: center;
+    padding: .75rem 0;
+    border-bottom: 1px solid var(--border);
+    gap: 1rem;
+  }
+  .link-row:last-child { border-bottom: none; }
+  .link-code {
+    font-family: 'DM Mono', monospace;
+    font-size: .9rem;
+    color: var(--accent);
+    min-width: 80px;
+    text-decoration: none;
+  }
+  .link-code:hover { text-decoration: underline; }
+  .link-dest {
+    font-size: .82rem; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    flex: 1;
+  }
+  .link-clicks {
+    font-family: 'DM Mono', monospace;
+    font-size: .78rem; color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* Footer */
+  footer { margin-top: 3rem; text-align: center; font-size: .78rem; color: var(--muted); }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .card, .result-box { animation: fadeUp .4s ease both; }
+  .result-box { animation-delay: .05s; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">snip<span>.</span></div>
+    <p class="tagline">Fast, clean URL shortening</p>
+  </header>
+
+  {% if short_url %}
+  <div class="result-box">
+    <div class="result-label">Your short URL is ready</div>
+    <div class="result-url" id="short-url">{{ short_url }}</div>
+    <div class="result-actions">
+      <button class="btn-sm btn-copy" onclick="copyURL()">Copy link</button>
+      <button class="btn-sm btn-stats">
+        <a href="/stats/{{ code }}">View stats →</a>
+      </button>
+    </div>
+    <div class="copy-feedback" id="copy-fb"></div>
+  </div>
+  {% endif %}
+
+  <div class="card">
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="/shorten">
+      <div class="field">
+        <label>Long URL</label>
+        <input type="text" name="long_url" placeholder="https://example.com/very/long/url" required autofocus>
+      </div>
+      <div class="field">
+        <label>Custom alias <span style="color:var(--muted);font-size:.7rem;text-transform:none">(optional)</span></label>
+        <input type="text" name="custom_code" placeholder="my-link">
+      </div>
+      <button class="btn" type="submit">Shorten →</button>
+    </form>
+  </div>
+
+  {% if recent %}
+  <div class="card" style="animation-delay:.1s">
+    <div class="section-title">Recent links</div>
+    {% for row in recent %}
+    <div class="link-row">
+      <a class="link-code" href="/{{ row.code }}" target="_blank">/{{ row.code }}</a>
+      <span class="link-dest">{{ row.long_url }}</span>
+      <span class="link-clicks">{{ row.click_count }} clicks</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <footer>built with FastAPI · SQLite · Python</footer>
+</div>
+
+<script>
+function copyURL() {
+  const url = document.getElementById('short-url').textContent.trim();
+  navigator.clipboard.writeText(url).then(() => {
+    const fb = document.getElementById('copy-fb');
+    fb.textContent = '✓ Copied to clipboard';
+    setTimeout(() => fb.textContent = '', 2000);
+  });
+}
+</script>
+</body>
+</html>
